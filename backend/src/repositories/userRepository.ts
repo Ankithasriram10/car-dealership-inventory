@@ -24,11 +24,6 @@ export class UserRepository {
     return row && this.toRecord(row);
   }
 
-  findById(id: number): User | undefined {
-    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
-    return row && { id: row.id, name: row.name, email: row.email, role: row.role };
-  }
-
   private toRecord(row: any): UserRecord {
     return { id: row.id, name: row.name, email: row.email, role: row.role, passwordHash: row.password_hash };
   }

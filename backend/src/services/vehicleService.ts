@@ -56,7 +56,9 @@ export class VehicleService {
   }
 
   get(id: number): Vehicle {
-    return this.vehicles.findById(id) ?? (() => { throw notFound('Vehicle not found'); })();
+    const vehicle = this.vehicles.findById(id);
+    if (!vehicle) throw notFound('Vehicle not found');
+    return vehicle;
   }
 
   search(query: unknown): Vehicle[] {
@@ -65,7 +67,9 @@ export class VehicleService {
 
   update(id: number, input: unknown): Vehicle {
     const patch = parse(updateSchema, input);
-    return this.vehicles.update(id, patch) ?? (() => { throw notFound('Vehicle not found'); })();
+    const updated = this.vehicles.update(id, patch);
+    if (!updated) throw notFound('Vehicle not found');
+    return updated;
   }
 
   remove(id: number): void {
