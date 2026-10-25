@@ -31,7 +31,7 @@ add, edit and delete vehicles and restock inventory.
 
 ## Running it locally
 
-**Requirements:** Node.js 20+ (developed on 22) and npm. No separate database server is needed; SQLite is a file.
+**Requirements:** Node.js 22+ and npm. No separate database server is needed; SQLite is a file.
 
 ```bash
 git clone <this-repo-url> && cd car-dealership
