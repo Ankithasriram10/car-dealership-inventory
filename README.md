@@ -1,0 +1,197 @@
+# Northline Motors - Car Dealership Inventory System
+
+A full-stack inventory system for a car dealership, built test-first.
+
+- **Backend:** Node.js + TypeScript + Express, **SQLite** (file-backed via `better-sqlite3`), JWT auth, Zod validation
+- **Frontend:** React 18 + TypeScript + **Tailwind CSS** (Vite), HTML5/CSS3
+- **Tests:** Jest + Supertest (API), Vitest + React Testing Library (UI) - **96 tests, ~99% line coverage**
+
+Customers can register, sign in, browse and search the catalogue, and purchase vehicles. Admins can additionally
+add, edit and delete vehicles and restock inventory.
+
+![Admin dashboard](docs/screenshots/05-dashboard-admin.png)
+
+## Screenshots
+
+| Sign in | Create account |
+|---|---|
+| ![Login](docs/screenshots/01-login.png) | ![Register](docs/screenshots/02-register.png) |
+
+| Customer dashboard | Search & filter |
+|---|---|
+| ![Customer](docs/screenshots/03-dashboard-customer.png) | ![Search](docs/screenshots/04-search.png) |
+
+| Admin: add vehicle | Admin: confirm delete |
+|---|---|
+| ![Add](docs/screenshots/06-add-vehicle.png) | ![Delete](docs/screenshots/07-confirm-delete.png) |
+
+| Mobile (390px) |
+|---|
+| ![Mobile](docs/screenshots/08-mobile.png) |
+
+## Running it locally
+
+**Requirements:** Node.js 20+ (developed on 22) and npm. No separate database server is needed; SQLite is a file.
+
+```bash
+git clone <this-repo-url> && cd car-dealership
+npm run install:all          # installs backend + frontend dependencies
+```
+
+### 1. Backend (http://localhost:4000)
+
+```bash
+cp backend/.env.example backend/.env   # optional; sensible defaults exist
+npm run seed                           # creates demo users + 12 vehicles
+npm run dev:api                        # or: cd backend && npm run dev
+```
+
+> The backend reads real environment variables (it does not load `.env` itself).
+> To use custom values, export them first, e.g. `JWT_SECRET=... PORT=4000 npm run dev:api`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4000` | API port |
+| `DB_PATH` | `./data/dealership.db` | SQLite file (created automatically) |
+| `JWT_SECRET` | dev-only fallback (warns) | **Set this in any real deployment** |
+
+### 2. Frontend (http://localhost:5173)
+
+In a second terminal:
+
+```bash
+npm run dev:web
+```
+
+Vite proxies `/api` to `localhost:4000`, so no CORS or URL configuration is needed in development.
+For a separately hosted API, set `VITE_API_URL` (see `frontend/.env.example`) and run `npm --prefix frontend run build`.
+
+### Demo accounts (created by `npm run seed`)
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@dealership.com` | `Admin123!` |
+| Customer | `customer@dealership.com` | `Customer123!` |
+
+New sign-ups via the UI are always regular customers. **Admins cannot self-register** (see design decisions).
+
+### Running the tests
+
+```bash
+npm test                  # both suites
+npm run test:coverage     # both suites with coverage
+npm run build             # type-check backend, type-check + build frontend
+```
+
+The full results are in **[docs/TEST_REPORT.md](docs/TEST_REPORT.md)**.
+
+| Suite | Tests | Line coverage |
+|---|---|---|
+| Backend | 64 | 99% |
+| Frontend | 32 | 99% |
+
+## API reference
+
+All `/api/vehicles/*` endpoints require `Authorization: Bearer <jwt>`. Errors are `{ "error": "message" }`.
+
+| Method & path | Access | Description | Success | Failure |
+|---|---|---|---|---|
+| `POST /api/auth/register` | public | `{name, email, password(>=8)}` -> creates a **user** | 201 `{user}` | 400 invalid, 409 duplicate email |
+| `POST /api/auth/login` | public | `{email, password}` | 200 `{token, user}` | 401 generic message |
+| `POST /api/vehicles` | any signed-in user | `{make, model, category, price, quantity?}` | 201 vehicle | 400 |
+| `GET /api/vehicles` | signed-in | All vehicles (out-of-stock included so the UI can show them as unavailable) | 200 `[...]` | 401 |
+| `GET /api/vehicles/search` | signed-in | `make`, `model` (partial), `category` (exact), `minPrice`, `maxPrice` (inclusive); AND-combined | 200 `[...]` | 400 bad/inverted price |
+| `GET /api/vehicles/:id` | signed-in | One vehicle | 200 | 400, 404 |
+| `PUT /api/vehicles/:id` | any signed-in user | Partial update | 200 vehicle | 400, 404 |
+| `DELETE /api/vehicles/:id` | **admin** | Remove vehicle | 204 | 403, 404 |
+| `POST /api/vehicles/:id/purchase` | signed-in | `{quantity?=1}` decreases stock | 200 vehicle | 409 insufficient stock, 400, 404 |
+| `POST /api/vehicles/:id/restock` | **admin** | `{quantity}` increases stock | 200 vehicle | 403, 400, 404 |
+
+## Architecture
+
+```
+backend/src
+  app.ts              composition root (wires repositories -> services -> routes)
+  routes/             thin HTTP layer: parse request, call service, shape response
+  services/           business rules + Zod validation (auth, vehicles, inventory, tokens, hashing)
+  repositories/       all SQL lives here (users, vehicles)
+  middleware/         authenticate, requireAdmin, errorHandler
+  db.ts               schema + connection (CHECK constraints as a second line of defence)
+frontend/src
+  api/client.ts       the only place that calls fetch; attaches the JWT; normalises errors
+  context/            AuthContext (session in localStorage)
+  pages/              AuthPage, Dashboard (owns data + dialogs)
+  components/         VehicleCard, SearchFilters, VehicleFormModal, RestockModal, ConfirmDialog, ...
+```
+
+SOLID in practice: routes, services and repositories each have one job (SRP); services receive their
+collaborators through constructors (DIP) which is also what lets tests build an isolated app per test;
+adding a new filter or endpoint extends these layers without rewriting them (OCP).
+
+### Design decisions worth knowing
+
+- **No overselling.** Purchase is a single conditional statement (`UPDATE ... SET quantity = quantity - ? WHERE id = ? AND quantity >= ?`),
+  so the check and the decrement can never be separated by another request. A concurrency test covers it.
+- **Admins are provisioned, not self-registered.** `register` ignores any `role` in the request body (tested), so nobody can
+  promote themselves. Admins come from `npm run seed` (or a direct DB insert).
+- **Permissions follow the brief literally.** The brief marks only *delete* and *restock* as admin-only, so `POST`/`PUT /api/vehicles`
+  accept any signed-in user at the API level, while the UI shows add/edit/delete/restock to admins only. If you want the API to enforce
+  admin on create/update too, add `requireAdmin` to those two routes in `backend/src/routes/vehicleRoutes.ts` (one line each) and adjust the tests.
+- **Generic login errors** ("Invalid email or password") for unknown user and wrong password, to avoid user enumeration; passwords hashed with bcrypt.
+- **Expired session handling.** A 401 from any API call signs the user out in the UI.
+- **Prices** are stored as SQLite `REAL`; for a real payments system, store integer cents.
+
+## Test-driven development
+
+History follows Red -> Green -> Refactor per feature. Run `git log --oneline --reverse` to see, for example:
+
+```
+chore: scaffold backend
+test(auth): add failing tests ... (red)
+feat(auth): implement registration, login, JWT middleware (green)
+test(vehicles): add failing tests for CRUD and search (red)
+feat(vehicles): implement CRUD and search endpoints (green)
+test(inventory): add failing tests for purchase and restock (red)
+feat(inventory): implement purchase and restock ... (green)
+refactor(backend): tidy services, add server/seed entry points and middleware tests
+test(frontend): add failing component, API client and app-flow tests (red)
+feat(frontend): implement auth, dashboard, search, purchase and admin CRUD UI (green)
+```
+
+Every red commit was run and confirmed failing for the right reason (missing module/behaviour) before the implementation was written.
+
+## My AI Usage
+
+### Which AI tools
+**Claude Code** (Anthropic, model Claude Sonnet 5.5), used through a single session. No other AI tools (Copilot, ChatGPT, Gemini) were used.
+The full prompt log is in [PROMPTS.md](PROMPTS.md) and the session link is on every AI-assisted commit.
+
+### How I used it
+I gave Claude the kata brief and asked it to produce the complete submission. Claude then:
+
+- chose the stack (Express + better-sqlite3 + JWT + Zod; React + Vite + Tailwind) and the layered architecture;
+- wrote the tests first for each feature, ran them to confirm they failed, then wrote the implementation and ran them to green
+  (that is the red/green/refactor history above);
+- wrote the backend, the React UI and its design, the seed script, the CI workflow and this README;
+- drove the app in a headless browser against the real API to check the end-to-end flow and capture the screenshots.
+
+Concretely, the **authorship split is: Claude wrote essentially all of the code and docs; my role was to specify the task,
+and to review, run and take ownership of the result.** All commits are co-authored accordingly.
+
+### Where AI got things wrong (and the checks that caught it)
+- The newest TypeScript major version was incompatible with `ts-jest`; the first "red" run failed for tooling reasons, not missing code. Fixed by pinning TypeScript 5.
+- A Zod default on `quantity` would have been applied inside the partial *update* schema and silently reset stock on every `PUT`. Found while reasoning about the Zod 4 API and fixed by making the default create-only; the "updates only the supplied fields" test pins that behaviour.
+- Search and modal inputs shared generated ids (`f-make`), a real accessibility bug. A frontend test failed on it; fixed with React `useId`.
+
+### Reflection
+> **Edit this section in your own words before submitting.** Draft based on what actually happened:
+
+AI made the repetitive parts (boilerplate, validation matrices, UI scaffolding) very fast and made the test-first discipline cheap
+to follow. The risk is plausible-looking code that is subtly wrong, as with the Zod default and the duplicate ids, so the value
+came from having tests that fail loudly and from running the real app end to end rather than trusting generated code.
+I would not ship generated code that I could not explain, so I read through each layer and can walk through the design decisions above.
+
+## Deployment (optional)
+
+Not deployed. The backend is a single Node process plus a SQLite file; the frontend is static (`npm --prefix frontend run build` -> `frontend/dist`).
+A typical setup is the API on Render/Railway/Fly (with a persistent volume for `DB_PATH` and `JWT_SECRET` set) and the frontend on Vercel/Netlify with `VITE_API_URL` pointing at it.
