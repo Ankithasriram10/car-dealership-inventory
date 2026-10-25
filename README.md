@@ -41,13 +41,12 @@ npm run install:all          # installs backend + frontend dependencies
 ### 1. Backend (http://localhost:4000)
 
 ```bash
-cp backend/.env.example backend/.env   # optional; sensible defaults exist
 npm run seed                           # creates demo users + 12 vehicles
 npm run dev:api                        # or: cd backend && npm run dev
 ```
 
-> The backend reads real environment variables (it does not load `.env` itself).
-> To use custom values, export them first, e.g. `JWT_SECRET=... PORT=4000 npm run dev:api`.
+> Defaults work out of the box. The backend reads real environment variables (it does not load `.env` files),
+> so to customise, set them inline, e.g. `JWT_SECRET=... PORT=4000 npm run dev:api` (`backend/.env.example` lists the names).
 
 | Variable | Default | Purpose |
 |---|---|---|
