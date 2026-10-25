@@ -9,6 +9,8 @@ import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/authRoutes';
 import { vehicleRoutes } from './routes/vehicleRoutes';
 import { VehicleRepository } from './repositories/vehicleRepository';
+import { InventoryService } from './services/inventoryService';
+import { inventoryRoutes } from './routes/inventoryRoutes';
 import { VehicleService } from './services/vehicleService';
 
 export interface AppConfig {
@@ -22,14 +24,18 @@ export function createApp(config: AppConfig) {
   const tokens = new TokenService(config.jwtSecret);
   const users = new UserRepository(db);
 
-  const vehicleService = new VehicleService(new VehicleRepository(db));
+  const vehicleRepo = new VehicleRepository(db);
+  const vehicleService = new VehicleService(vehicleRepo);
+  const inventoryService = new InventoryService(vehicleRepo);
 
   const app = express();
   app.use(cors());
   app.use(express.json());
 
   app.use('/api/auth', authRoutes(new AuthService(users, tokens)));
-  app.use('/api/vehicles', authenticate(tokens), vehicleRoutes(vehicleService));
+  const requireAuth = authenticate(tokens);
+  app.use('/api/vehicles', requireAuth, vehicleRoutes(vehicleService));
+  app.use('/api/vehicles', requireAuth, inventoryRoutes(inventoryService));
 
   app.use(errorHandler);
   return { app, db };

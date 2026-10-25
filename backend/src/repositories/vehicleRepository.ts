@@ -59,4 +59,18 @@ export class VehicleRepository {
   delete(id: number): boolean {
     return this.db.prepare('DELETE FROM vehicles WHERE id = ?').run(id).changes > 0;
   }
+
+  /**
+   * Atomically removes stock. The WHERE clause makes the check-and-decrement a single
+   * statement, so concurrent buyers can never push quantity below zero.
+   */
+  decrementIfAvailable(id: number, amount: number): boolean {
+    return this.db
+      .prepare('UPDATE vehicles SET quantity = quantity - ? WHERE id = ? AND quantity >= ?')
+      .run(amount, id, amount).changes > 0;
+  }
+
+  increment(id: number, amount: number): boolean {
+    return this.db.prepare('UPDATE vehicles SET quantity = quantity + ? WHERE id = ?').run(amount, id).changes > 0;
+  }
 }
