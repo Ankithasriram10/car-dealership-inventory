@@ -4,7 +4,6 @@ Raw, unedited prompts from the AI session used to build this project. Nothing be
 AI-written summary.
 
 - **Tool:** Claude Code (Claude Sonnet 5.5, `claude-sonnet-5-5`)
-- **Full conversation (transcript, including every assistant step):** https://claude.ai/code/session_01HKtfhUzGB4NwWR6aiS2hyq
 - Every commit made with AI help carries a `Co-Authored-By: Claude Sonnet 5.5` trailer and the same session link.
 
 ---
@@ -18,7 +17,7 @@ Attachment: `AI_Kata_Car_Dealership_Inventory_System_V2.docx` (the kata brief, f
 Message text:
 
 ```
-give the submitable
+Tell me the requirements from the provided file
 ```
 
 #### Attachment text (verbatim extraction of the .docx)
