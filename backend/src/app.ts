@@ -8,6 +8,8 @@ import { authenticate } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/authRoutes';
 import { vehicleRoutes } from './routes/vehicleRoutes';
+import { VehicleRepository } from './repositories/vehicleRepository';
+import { VehicleService } from './services/vehicleService';
 
 export interface AppConfig {
   dbPath: string;
@@ -20,12 +22,14 @@ export function createApp(config: AppConfig) {
   const tokens = new TokenService(config.jwtSecret);
   const users = new UserRepository(db);
 
+  const vehicleService = new VehicleService(new VehicleRepository(db));
+
   const app = express();
   app.use(cors());
   app.use(express.json());
 
   app.use('/api/auth', authRoutes(new AuthService(users, tokens)));
-  app.use('/api/vehicles', authenticate(tokens), vehicleRoutes());
+  app.use('/api/vehicles', authenticate(tokens), vehicleRoutes(vehicleService));
 
   app.use(errorHandler);
   return { app, db };
