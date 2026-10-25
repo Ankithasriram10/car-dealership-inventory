@@ -169,4 +169,40 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument();
     expect(localStorage.getItem('dealership.token')).toBeNull();
   });
+
+  it('lets an admin edit a vehicle and shows the updated price', async () => {
+    const put = vi.fn((b: any) => jsonResponse({ ...camry, ...b }));
+    mockApi({
+      'POST /api/auth/login': () => jsonResponse({ token: 'tok', user: admin }),
+      'GET /api/vehicles': () => jsonResponse([camry]),
+      'PUT /api/vehicles/1': put,
+    });
+    render(<App />);
+    await signIn('admin@dealership.com', 'Admin123!');
+    await userEvent.click(await screen.findByRole('button', { name: /edit/i }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.clear(within(dialog).getByLabelText(/price/i));
+    await userEvent.type(within(dialog).getByLabelText(/price/i), '26500');
+    await userEvent.click(within(dialog).getByRole('button', { name: /save changes/i }));
+    expect(await screen.findByText('$26,500')).toBeInTheDocument();
+    expect(put).toHaveBeenCalledWith(expect.objectContaining({ price: 26500 }));
+  });
+
+  it('restores a saved session on reload without asking for credentials', async () => {
+    localStorage.setItem('dealership.token', 'tok');
+    localStorage.setItem('dealership.user', JSON.stringify(customer));
+    mockApi({ 'GET /api/vehicles': () => jsonResponse([camry]) });
+    render(<App />);
+    expect(await screen.findByText('Camry')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it('signs the user out when the API says the session has expired', async () => {
+    localStorage.setItem('dealership.token', 'expired');
+    localStorage.setItem('dealership.user', JSON.stringify(customer));
+    mockApi({ 'GET /api/vehicles': () => jsonResponse({ error: 'Invalid or expired token' }, 401) });
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: /sign in/i })).toBeInTheDocument();
+    expect(localStorage.getItem('dealership.token')).toBeNull();
+  });
 });
