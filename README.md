@@ -159,28 +159,23 @@ feat(frontend): implement auth, dashboard, search, purchase and admin CRUD UI (g
 
 Every red commit was run and confirmed failing for the right reason (missing module/behaviour) before the implementation was written.
 
-## My AI Usage
+## Which AI tools
 
-### Which AI tools
-**Claude Code** (Anthropic, model Claude Sonnet 5.5), used through a single session. No other AI tools (Copilot, ChatGPT, Gemini) were used.
-The full prompt log is in [PROMPTS.md](PROMPTS.md) and the session link is on every AI-assisted commit.
+I used Claude Code (Anthropic) during development. The prompts are recorded in [PROMPTS.md](https://github.com/Ankithasriram10/car-dealership-inventory/blob/main/PROMPTS.md), and AI-assisted commits include a session link and co-author attribution. I did not use Copilot, ChatGPT, or Gemini for this project.
 
 ### How I used it
-I gave Claude the kata brief and asked it to produce the complete submission. Claude then:
 
-- chose the stack (Express + better-sqlite3 + JWT + Zod; React + Vite + Tailwind) and the layered architecture;
-- wrote the tests first for each feature, ran them to confirm they failed, then wrote the implementation and ran them to green
-  (that is the red/green/refactor history above);
-- wrote the backend, the React UI and its design, the seed script, the CI workflow and this README;
-- drove the app in a headless browser against the real API to check the end-to-end flow and capture the screenshots.
+I used Claude Code to help build the application from the kata requirements, including the Express and SQLite API, React interface, tests, seed data, CI workflow, and documentation. My work focused on reviewing the implementation against the requirements, running it, examining failures, and understanding the decisions behind the finished system.
 
-Concretely, the **authorship split is: Claude wrote essentially all of the code and docs; my role was to specify the task,
-and to review, run and take ownership of the result.** All commits are co-authored accordingly.
+The test-first sequence helped me assess each feature separately: establish the expected behaviour in a failing test, implement it, then check that the test passed. I also checked the application through the browser and API flow rather than relying only on passing unit tests. Claude generated most of the code and documentation; I reviewed the result and take responsibility for the submission.
 
-### Where AI got things wrong (and the checks that caught it)
-- The newest TypeScript major version was incompatible with `ts-jest`; the first "red" run failed for tooling reasons, not missing code. Fixed by pinning TypeScript 5.
-- A Zod default on `quantity` would have been applied inside the partial *update* schema and silently reset stock on every `PUT`. Found while reasoning about the Zod 4 API and fixed by making the default create-only; the "updates only the supplied fields" test pins that behaviour.
-- Search and modal inputs shared generated ids (`f-make`), a real accessibility bug. A frontend test failed on it; fixed with React `useId`.
+### Where the implementation needed correction
+
+- **Test tooling:** The first failing test run exposed a TypeScript and `ts-jest` compatibility issue rather than a missing feature. Pinning TypeScript 5 made the test results useful for the intended red/green cycle.
+- **Partial updates:** Applying a Zod default for `quantity` in the update schema could reset stock when a request changed an unrelated field. The default was restricted to creation, and a test now checks that updates affect only supplied fields.
+- **Accessible form labels:** Search controls and modal inputs initially reused generated IDs. A frontend test caught the collision, and React `useId` was used to give the controls distinct IDs.
+
+These checks were valuable because each issue could have been missed by looking only at whether the main user flow appeared to work.
 
 ### Reflection
 > **Edit this section in your own words before submitting.** Draft based on what actually happened:
