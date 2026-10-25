@@ -4,8 +4,6 @@ Raw, unedited prompts from the AI session used to build this project. Nothing be
 AI-written summary.
 
 - **Tool:** Claude Code (Claude Sonnet 5.5, `claude-sonnet-5-5`)
-- Every commit made with AI help carries a `Co-Authored-By: Claude Sonnet 5.5` trailer and the same session link.
-
 ---
 
 ## Session 1 - the only session
